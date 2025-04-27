@@ -1,0 +1,207 @@
+!pip install pycryptodome phe
+
+# Re-defining genetic encryption functions here
+
+import random
+
+# Mapping for DNA bases
+DNA_MAPPING = {
+    '00': 'A',
+    '01': 'C',
+    '10': 'G',
+    '11': 'T'
+}
+
+# Reverse mapping for decryption
+DNA_REVERSE_MAPPING = {v: k for k, v in DNA_MAPPING.items()}
+
+
+def xor_encrypt(data: bytes, key: bytes) -> bytes:
+    """Encrypt data using XOR with key (repeat key if needed)."""
+    key = key * (len(data) // len(key)) + key[:len(data) % len(key)]
+    return bytes([d ^ k for d, k in zip(data, key)])
+
+
+def xnor_encrypt(data: bytes, key: bytes) -> bytes:
+    """Encrypt data using XNOR with key (repeat key if needed)."""
+    key = key * (len(data) // len(key)) + key[:len(data) % len(key)]
+    return bytes([~(d ^ k) & 0xFF for d, k in zip(data, key)])
+
+
+def bit_shift(data: bytes, shift_by: int = 1, direction: str = 'left') -> bytes:
+    """Shift bits left or right."""
+    if direction == 'left':
+        return bytes([(b << shift_by | b >> (8 - shift_by)) & 0xFF for b in data])
+    else:
+        return bytes([(b >> shift_by | b << (8 - shift_by)) & 0xFF for b in data])
+
+
+def binary_to_dna(data: bytes) -> str:
+    """Convert binary data into a DNA sequence."""
+    binary_string = ''.join(f'{byte:08b}' for byte in data)
+    dna = ''.join(DNA_MAPPING[binary_string[i:i+2]] for i in range(0, len(binary_string), 2))
+    return dna
+
+
+def dna_to_binary(dna_sequence: str) -> bytes:
+    """Convert DNA sequence back to binary data."""
+    binary_string = ''.join(DNA_REVERSE_MAPPING[base] for base in dna_sequence)
+    byte_list = [int(binary_string[i:i+8], 2) for i in range(0, len(binary_string), 8)]
+    return bytes(byte_list)
+
+
+def genetic_encrypt(data: bytes, key: bytes) -> str:
+    """Full Genetic Encryption: Logical Operations + DNA Mapping."""
+    # Step 1: XOR Encryption
+    xor_encrypted = xor_encrypt(data, key)
+    
+    # Step 2: Bit Shift
+    shifted = bit_shift(xor_encrypted, shift_by=2, direction='left')
+    
+    # Step 3: DNA Mapping
+    dna_encoded = binary_to_dna(shifted)
+    
+    return dna_encoded
+
+
+def genetic_decrypt(dna_sequence: str, key: bytes) -> bytes:
+    """Full Genetic Decryption: DNA Mapping Reverse + Logical Operations."""
+    # Step 1: DNA to Binary
+    binary_data = dna_to_binary(dna_sequence)
+    
+    # Step 2: Reverse Bit Shift
+    unshifted = bit_shift(binary_data, shift_by=2, direction='right')
+    
+    # Step 3: XOR Decryption
+    decrypted = xor_encrypt(unshifted, key)
+    
+    return decrypted
+
+ #encrypt_wine_dataset
+ import pandas as pd
+
+# Load dataset
+def load_wine_dataset(filepath):
+    return pd.read_csv("winequality-red.csv", sep=';')
+
+# Encrypt selected columns
+def encrypt_wine_data(df, key, columns_to_encrypt):
+    encrypted_df = df.copy()
+
+    for col in columns_to_encrypt:
+        encrypted_col = []
+        for val in df[col]:
+            # Convert float to bytes
+            byte_val = str(val).encode()
+            # Encrypt using genetic encryption
+            encrypted_val = genetic_encrypt(byte_val, key)
+            encrypted_col.append(encrypted_val)
+        encrypted_df[col] = encrypted_col
+
+    return encrypted_df
+
+# Decrypt selected columns
+def decrypt_wine_data(df, key, columns_to_decrypt):
+    decrypted_df = df.copy()
+
+    for col in columns_to_decrypt:
+        decrypted_col = []
+        for val in df[col]:
+            # Decrypt DNA sequence
+            decrypted_bytes = genetic_decrypt(val, key)
+            # Convert bytes back to float
+            decrypted_val = float(decrypted_bytes.decode())
+            decrypted_col.append(decrypted_val)
+        decrypted_df[col] = decrypted_col
+
+    return decrypted_df
+
+
+# Now, let's encrypt the wine dataset using these methods.
+key = b'secret123'
+filepath = "/mnt/data/winequality-red.csv"  # Path to the uploaded Wine dataset file
+columns = ['pH', 'density', 'alcohol']  # example features to encrypt
+
+# Step 1: Load
+df = load_wine_dataset(filepath)
+print("Original Data Sample:\n", df[columns].head())
+
+# Step 2: Encrypt
+encrypted_df = encrypt_wine_data(df, key, columns)
+print("\nEncrypted Data Sample:\n", encrypted_df[columns].head())
+
+# Step 3: Decrypt (for verification)
+decrypted_df = decrypt_wine_data(encrypted_df, key, columns)
+print("\nDecrypted Data Sample:\n", decrypted_df[columns].head())
+
+# homomorphic_layer_phe
+from phe import paillier
+
+class PaillierHE:
+    def __init__(self):
+        # Generate public / private keypair
+        self.pub_key, self.priv_key = paillier.generate_paillier_keypair()
+
+    def encrypt(self, value: int):
+        return self.pub_key.encrypt(value)
+
+    def decrypt(self, ctxt):
+        return self.priv_key.decrypt(ctxt)
+
+    def add(self, ctxt1, ctxt2):
+        # Homomorphic addition
+        return ctxt1 + ctxt2
+
+    def mul_scalar(self, ctxt, scalar: int):
+        # Homomorphic scalar multiplication
+        return ctxt * scalar
+
+
+
+import pandas as pd
+from phe import paillier
+
+# PaillierHE Class Definition (above code)
+
+# Example of Usage:
+df = pd.read_csv("winequality-red.csv", sep=';')
+he = PaillierHE()
+
+# Scale floats → integers (preserve two decimals)
+scale = 100
+ph_ints = [int(x * scale) for x in df['pH'].head(5)]
+
+# Encrypt
+enc = [he.encrypt(v) for v in ph_ints]
+
+# Sum in encrypted domain
+enc_sum = enc[0]
+for c in enc[1:]:
+    enc_sum = he.add(enc_sum, c)
+
+# Decrypt and compare
+decrypted_sum = he.decrypt(enc_sum)
+print("Plain sum:", sum(ph_ints))
+print("Decrypted sum:", decrypted_sum)
+print("Back to float:", decrypted_sum / scale)
+
+
+# Final Integration Example
+key = b'secret123'
+filepath = "/mnt/data/winequality-red.csv"  # Path to the uploaded Wine dataset file
+columns = ['pH', 'density', 'alcohol']  # example features to encrypt
+
+# Step 1: Load
+df = load_wine_dataset(filepath)
+print("Original Data Sample:\n", df[columns].head())
+
+# Step 2: Encrypt
+encrypted_df = encrypt_wine_data(df, key, columns)
+print("\nEncrypted Data Sample:\n", encrypted_df[columns].head())
+
+# Step 3: Decrypt (for verification)
+decrypted_df = decrypt_wine_data(encrypted_df, key, columns)
+print("\nDecrypted Data Sample:\n", decrypted_df[columns].head())
+
+# Step 4: Homomorphic Encryption on 'pH' column
+homomorphic_example(df, ['pH'])
