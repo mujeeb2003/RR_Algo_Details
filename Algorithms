@@ -1,0 +1,167 @@
+1. Build the Core Algorithm
+  ->Layer 1 (Genetic Encryption):
+  
+  Encrypt plaintext using logical operations (XOR, XNOR, bit shifts).
+  
+  Map binary data to DNA nucleotides (e.g., 00->A, 01->C, 10->G, 11->T).
+  
+  Result: DNA-encoded ciphertext.
+
+  ->Layer 2 (Homomorphic Encryption):
+  
+  Take the output of Layer 1, format it properly (likely integers or polynomial-like structures).
+  
+  Encrypt using a Homomorphic Encryption library (e.g., PySEAL, Pyfhel, or custom basic simulation if SEAL is unavailable).
+  
+  Perform operations (e.g., summation of encrypted values).
+  
+  Decrypt and verify correctness.
+  
+  ->Layer 3 (Adaptive Key Management):
+  
+  Implement Key rotation (e.g., every X minutes or after Y operations).
+  
+  Enforce expiration-based access (simulate "key invalid after time").
+  
+  Simulate brute-force attacks and record resistance metrics.
+
+2. Testing on Datasets
+  Plaintext files (1MB–16MB):
+  
+  Full 3-layer encryption.
+  
+  Measure time, CPU, memory usage.
+  
+  Wine Quality Dataset:
+  
+  Focus on Layer 2 (Homomorphic operations).
+  
+  Encrypt wine data features, perform addition on encrypted data.
+  
+  Healthcare Dataset (future, for Layer 3 focus):
+  
+  Apply full encryption.
+  
+  Simulate key rotation, expiration scenarios.
+
+3. Comparative Analysis
+  Compare our hybrid model to AES and RSA:
+  
+  Encryption/Decryption speed
+  
+  Resource consumption
+  
+  Avalanche effect (small change in input causes large change in output)
+
+Tools Needed
+
+Task and Tools/Libraries
+Logical operations-> Pure Python (XOR, XNOR, Shift)
+DNA Mapping-> Pure Python
+Homomorphic Encryption-> PySEAL / Pyfhel (or simulate if heavy setup)
+Timing/Memory Usage-> time, psutil libraries
+Key Management-> Pure Python (key objects, timer-based expiry)
+Comparative Analysis-> matplotlib, seaborn (for graphs) 
+
+
+Below this applies to all winequality datasets:
+1. Initialization
+ 
+  pip install pycryptodome phe
+  km ← KeyManager(rotation_interval, key_ttl) 
+
+  rotation_interval = seconds between automatic key rotations
+  key_ttl = how long each key remains valid (seconds)
+
+2. Data Loading
+  For each dataset (red/white wine): 
+
+  df ← read_csv(filepath)      # winequality-*.csv
+  # or:
+  raw_bytes ← read_bytes(filepath)  # for large plaintext files
+
+3. Encryption Pipeline
+  For each row in the dataset and each targeted column for example: pH, density, alcohol:
+  (version, genetic_key, he_instance) ← km.get_current()
+
+  #── Layer 1: Genetic Encryption ──
+  #  a) Convert numeric value → byte string
+  byte_val ← encode_string( str(value) )
+  
+  #  b) XOR + bit-shift
+  xored   ← XOR( byte_val, genetic_key )
+  shifted ← SHIFT( xored, by=2, direction=left )
+  
+  #  c) DNA mapping (optional to store)
+  dna_seq ← BIN2DNA( shifted )
+  
+  #── Layer 2: Homomorphic Encryption ──
+  #  a) Convert shifted bytes → integer
+  shifted_int ← BYTES2INT( shifted )
+  
+  #  b) HE‐encrypt the integer
+  ctxt ← he_instance.encrypt( shifted_int )
+  
+  #  c) Store `ctxt` (and optionally `dna_seq`) for downstream operations
+  store_ciphertext(ctxt, dna_seq)
+
+4. Homomorphic Operations
+  Whenever you want to do computation like sum,avg on encryption data:
+  # Suppose you have ciphertexts [c₁, c₂, …, cₙ]
+  c_sum ← c₁
+  for i from 2 to n:
+      c_sum ← he_instance.add(c_sum, cᵢ)
+  
+  # For averages, you can also do scalar‐mult:
+  c_avg ← he_instance.mul_scalar(c_sum, 1/n)
+
+
+5. Decryption Pipeline
+  for the recovery ofif a single value from cpher text:
+  # Retrieve the same `version` you encrypted with
+  if not km.is_key_valid(version):
+      error “Key expired – cannot decrypt.”
+  
+  #── Homomorphic Decrypt (Layer 2 reverse) ──
+  dec_int ← he_instance.decrypt_sum(c_sum, n_terms)
+  
+  #── Genetic Decrypt (Layer 1 reverse) ──
+  dec_bytes ← INT2BYTES(dec_int)
+  unshifted ← SHIFT(dec_bytes, by=2, direction=right)
+  orig_bytes ← XOR(unshifted, genetic_key)
+  
+  # Convert back to float or text
+  value ← decode_string(orig_bytes)
+
+6. Key Management
+  Automatic rotation: KeyManager.rotate_keys() creates a rotation_interval of seconds, a 16-byte genetic_key and a new instance of ToyHE.  
+  Older versions beyond key_ttl are removed after expiration.
+  Access always call km.get_current() just before encryption, and check km.is_key_valid() before decryption.
+  regarding attack simulation you can adjust key_ttl and key_size parameters by benchmarking km.simulate_attack_rate().
+
+7. Pseudocode Summary:
+  Initialize KeyManager(rotate_interval, key_ttl)
+  
+  # Encrypt phase
+  for each dataset in {red, white, plaintext}:
+    data ← load(dataset)
+    for each record r in data:
+      (v, gkey, he) ← km.get_current()
+      ciphertexts[r] ← []
+      for each field f in target_fields:
+        byte_f   ← encode(f)
+        enc1     ← Layer1_encrypt(byte_f, gkey)
+        int_repr ← bytes_to_int(enc1)
+        ctxt     ← he.encrypt(int_repr)
+        append ciphertexts[r] with ctxt
+  
+  # Compute phase
+  result_ctxt ← homomorphic_sum(ciphertexts[all_records][column])
+  
+  # Decrypt phase
+  assert km.is_key_valid(v)
+  dec_int     ← he.decrypt_sum(result_ctxt, num_terms)
+  dec_bytes   ← int_to_bytes(dec_int)
+  orig_bytes  ← Layer1_decrypt(dec_bytes, gkey)
+  final_value ← decode(orig_bytes)
+  
