@@ -1,0 +1,52 @@
+We're combining three things:
+-> Genetic Encryption (custom layer)
+-> Homomorphic Encryption (Paillier)
+-> Adaptive Key Management (Envelope encryption, KEK/DEK with rotation)
+
+Inorder to demonstrate the efficiency of the approach, we are comparing with the standard encryption algorithms that comes into these categories:
+
+| Algorithm                          | Type                                      | Use Case                                               | Comparison Focus                              |
+| ---------------------------------- | ----------------------------------------- | ------------------------------------------------------ | --------------------------------------------- |
+| AES (Advanced Encryption Standard) | Symmetric                                 | Industry-standard for fast and secure data encryption  | Speed, simplicity, and security               |
+| RSA                                | Asymmetric                                | Widely used for key exchange and small data encryption | Key size, performance, and security           |
+| Paillier                           | Homomorphic                               | Enables computation on encrypted data                  | Functional comparison for encrypted analytics |
+| ElGamal                            | Asymmetric / Homomorphic (Multiplicative) | Public-key encryption with partial homomorphism        | Performance and compatibility                 |
+| Custom Hybrid (Your Algorithm)     | Multi-layer                               | Designed for secure cloud computation with analytics   | Enhanced security + computation ability       |
+
+
+We also looked into the simple XOR acting as a baseline meaning; showing how fast or slow it is and advanced homomorphic encryption like BFV for showing limitations!
+
+Looking into metrics is really important, if we are testing on a dataset, in this case dataset is wine quality and healthcare.(Each Algorithm)
+
+| Metric                     | Description                                  |
+| ---------------------------| -------------------------------------------- |
+| Encryption Time (ms/value) | How long it takes to encrypt each data point |
+| Decryption Time (ms/value) | Time taken to decrypt                        |
+| Memory Usage               | During encryption/decryption                 |
+| Key Size                   | In bits (e.g., AES-128, RSA-2048)            |
+| Homomorphic Support        | Can you compute on encrypted data?           |
+| Security Level             | Brute force resistance, key space, etc.      |
+
+
+We can visualize by:
+-> Bar Chart regarding time
+-> Pie Charts regarding memory proportion
+
+
+Total Summary:
+
+| Algorithm       | Encryption Time | Decryption Time | Homomorphic   | Security    | Best Use Case           |
+| --------------- | --------------- | --------------- | -----------   | ----------  | ----------------------- |
+|  Your Hybrid    | Medium          | Medium          | ✅ Full      | Very High    | Secure cloud analytics  |
+|     AES         | 🔼 Fast         | 🔼 Fast        | ❌           | High         | Bulk data encryption    |
+|     RSA         | ❌ Slow         | ❌ Slow        | ❌           | High         | Secure key exchange     |
+|     Paillier    | ❌ Slow         | ❌ Slow        | ✅ Additive  | Medium       | Privacy-preserving math |
+|     XOR         | 🔼 Fast         | 🔼 Fast        | ❌           | ❌ Very Low  | Academic baseline       |
+
+There is also RC4 but it is deprecated. If you want to look into it further regarding encryption and decryption time been faster than RSA and Paillier then these two can be considered:
+
+| Algorithm                          | Type      | Speed             | Security       | Information                                                          |
+| ---------------------------------  | --------- | ----------------- | -------------- | -------------------------------------------------------------------- |
+| ChaCha20                           | Symmetric | 🔼 Very Fast      | 🔐 Strong      | Faster than AES on devices without AES hardware; great for mobile   |
+| Blowfish                           | Symmetric | 🔼 Fast           | 🟡 Moderate    | Lightweight, but older; better replaced by AES/ChaCha20             |
+
