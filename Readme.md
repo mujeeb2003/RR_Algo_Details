@@ -23,13 +23,7 @@ The final output is data that has been secured through all three layers, with ea
 
 ## Testing Strategy with Multiple Datasets
 
-We will use three distinct datasets to test specific aspects of our algorithm:
-
-### Plain Text Files (1MB to 16MB)
-- **Purpose**: Measure overall performance metrics
-- **Metrics**: Encryption time, CPU usage, memory consumption
-- **Represents**: General cloud data (logs, documents)
-- **Tests**: Complete algorithm performance (all layers)
+We will use two distinct datasets to test specific aspects of our algorithm:
 
 ### Wine Quality Dataset
 - **Purpose**: Validate Layer 2 (homomorphic encryption)
